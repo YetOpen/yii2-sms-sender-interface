@@ -1,6 +1,11 @@
 Yii2 SMS Sender Interface
 ===========================
 
+0.1.2 29 Jun, 2023
+-------------------------
+
+- Added possibility to prevent sending by saving the message on file via `useFileTransport` property.
+
 0.1.1 17 Sep, 2021
 -------------------------
 

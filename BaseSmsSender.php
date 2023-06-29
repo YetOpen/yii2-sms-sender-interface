@@ -6,6 +6,7 @@ use Yii;
 use yii\base\Component;
 use yii\base\Exception;
 use yii\log\Logger;
+use yii\mail\MessageInterface;
 
 /**
  * BaseSmsSender serves as a base class that implements the basic functions required by [[SmsSenderInterface]].
@@ -44,6 +45,16 @@ abstract class BaseSmsSender extends Component implements SmsSenderInterface
      * @var string|null (optional) Date-time in which the message will be scheduled to be sent.
      */
     public $deliveryTime;
+    /**
+     * @var bool whether to save sms messages as files under [[fileTransportPath]] instead of sending them
+     * to the actual recipients. This is usually used during development for debugging purpose.
+     * @see fileTransportPath
+     */
+    public $useFileTransport = false;
+    /**
+     * @var string the directory where the email messages are saved when [[useFileTransport]] is true.
+     */
+    public $fileTransportPath = '@runtime/sms';
 
     /**
      * Create a new [SmsSenderInterface] instance
@@ -78,7 +89,11 @@ abstract class BaseSmsSender extends Component implements SmsSenderInterface
             return false;
         }
         try {
-            $isSuccessful = $this->sendMessage($message);
+            if ($this->useFileTransport) {
+                $isSuccessful = $this->saveMessage($message);
+            } else {
+                $isSuccessful = $this->sendMessage($message);
+            }
         } catch (Exception $exception) {
             $isSuccessful = false;
             Yii::error($exception, __METHOD__);
@@ -94,6 +109,35 @@ abstract class BaseSmsSender extends Component implements SmsSenderInterface
      * @return bool
      */
     abstract public function sendMessage($message);
+
+    /**
+     * Saves the message as a file under [[fileTransportPath]].
+     * @param BaseSmsSender $message
+     * @return bool whether the message is saved successfully
+     */
+    protected function saveMessage($message)
+    {
+        $path = Yii::getAlias($this->fileTransportPath);
+        if (!is_dir($path)) {
+            mkdir($path, 0777, true);
+        }
+        $file = $path . '/' . $this->generateMessageFileName();
+        file_put_contents($file, $message->content);
+
+        return true;
+    }
+
+    /**
+     * @return string the file name for saving the message when [[useFileTransport]] is true.
+     * @throws \Exception
+     */
+    public function generateMessageFileName()
+    {
+        $time = microtime(true);
+        $timeInt = (int) $time;
+
+        return date('Ymd-His-', $timeInt) . sprintf('%04d', (int) (($time - $timeInt) * 10000)) . '-' . sprintf('%04d', random_int(0, 10000)) . '.txt';
+    }
 
     /**
      * This method is invoked right before an sms is sent.
